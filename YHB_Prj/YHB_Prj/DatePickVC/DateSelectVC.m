@@ -64,6 +64,7 @@ typedef NS_ENUM(int, dateBtTag)
 - (void)viewDidLoad {
     [super viewDidLoad];
     btTag = -1;
+    [self setTitle:@"选择日期"];
     // Do any additional setup after loading the view from its nib.
     CGFloat height = self.okButton.bottom;
     [self.scrollview setContentSize:CGSizeMake(kMainScreenWidth, height+20)];
@@ -102,11 +103,13 @@ typedef NS_ENUM(int, dateBtTag)
     self.dateEnd_pick.tag = 1;
     [self.dateEnd_pick addTarget:self action:@selector(onDatePickerValueChanged:) forControlEvents:UIControlEventValueChanged];
     [self.okButton addTarget:self action:@selector(okButtonItem) forControlEvents:UIControlEventTouchUpInside];
+    
+    [self setRightButton:nil title:@"确定" target:self action:@selector(okButtonItem)];
 }
 
 - (void)dateButtonItem:(UIButton *)aBt
 {
-    btTag = aBt.tag;
+    btTag = (int)aBt.tag;
     switch (aBt.tag) {
         case jt_enum:
         {
@@ -166,12 +169,15 @@ typedef NS_ENUM(int, dateBtTag)
         default:
             break;
     }
+    startDate = [NSString stringWithFormat:@"%d",btTag];
+    endDate = [NSString stringWithFormat:@"%d",btTag];
+    [self okButtonItem];
 }
 
 - (void)onDatePickerValueChanged:(UIDatePicker *)aDatePicker
 {
     btTag = -1;
-    if(aDatePicker.tag == 0)
+    if(aDatePicker.tag == 0) //start
     {
         NSDate *select = [aDatePicker date]; // 获取被选中的时间
         startDate = [NSDateTool dateToNSString:select formate:@"yyyy-MM-dd"];
@@ -199,7 +205,7 @@ typedef NS_ENUM(int, dateBtTag)
         }
         showEndDate = [NSDateTool dateToNSString:select formate:@"yyyy-MM-dd"];
         
-        NSDate *selectstart = [aDatePicker date]; // 获取被选中的时间
+        NSDate *selectstart = [self.dateStart_Pick date]; // 获取被选中的时间
         startDate = [NSDateTool dateToNSString:selectstart formate:@"yyyy-MM-dd"];
         if(startDate)
         {

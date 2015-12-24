@@ -14,11 +14,15 @@
 #import "LoginManager.h"
 #import "DJStoryboadManager.h"
 #import "YDCXViewController.h"
+#import "SVProgressHUD.h"
+#import "SVPullToRefresh.h"
+
 @interface FirstViewController ()
 {
     __weak FirstViewController *weakself;
 }
 @property (strong, nonatomic) IBOutlet UIScrollView *scrollView;
+@property (strong, nonatomic) IBOutlet UIView *scrollHeadView;
 @property (strong, nonatomic) IBOutlet UILabel *headDate_Label;
 @property (strong, nonatomic) IBOutlet UIButton *head_rbt;
 @property (strong, nonatomic) IBOutlet UILabel *headYYEPrice_Label;
@@ -42,6 +46,7 @@
 @property (strong, nonatomic) IBOutlet UIButton *bottom_hygl_BT;
 @property (strong, nonatomic) IBOutlet UIButton *bottom_wydh_BT;
 @property (strong, nonatomic) IBOutlet UIButton *bottom_gdcx_BT;
+@property (strong, nonatomic) IBOutlet UIButton *head_push_lsvc_bt;
 
 @property (strong, nonatomic) DateSelectVC *dateVC;
 @property (strong, nonatomic) FirstVCManager *manager;
@@ -57,11 +62,15 @@
     weakself = self;
     self.strStartTime = @"0";
     self.strEndTime = nil;
-    [self settitleLabel:@"首页test"];
+    [self settitleLabel:@"全部门店"];
     self.manager = [[FirstVCManager alloc] init];
     [self showSelectStoreButton];
+    [self setShowAllStoreList:YES];
     CGFloat height = self.bottom_zxdd_BT.bottom;
-    
+    UIImageView *imgview = [[UIImageView alloc] initWithFrame:self.scrollHeadView.bounds];
+    [imgview setImage:[UIImage imageNamed:@"home_head_bg"]];
+    [self.scrollView addSubview:imgview];
+    [self.scrollView sendSubviewToBack:imgview];
     [self.scrollView setContentSize:CGSizeMake(kMainScreenWidth, height+20)];
     
     [self.head_rbt addTarget:self action:@selector(head_rbtItem:) forControlEvents:UIControlEventTouchUpInside];
@@ -74,6 +83,8 @@
     [self.bottom_gdcx_BT addTarget:self action:@selector(gdcx_buttonItem) forControlEvents:UIControlEventTouchUpInside];
     [self.bottom_spgl_BT addTarget:self action:@selector(spgl_ButtonItem) forControlEvents:UIControlEventTouchUpInside];
     [self.bottom_wydh_BT addTarget:self action:@selector(wyjn_buttonItem) forControlEvents:UIControlEventTouchUpInside];
+    [self.bottom_zxdd_BT addTarget:self action:@selector(zxdg_ButtonItem) forControlEvents:UIControlEventTouchUpInside];
+    [self.head_push_lsvc_bt addTarget:self action:@selector(pushXSLSVCBTItem) forControlEvents:UIControlEventTouchUpInside];
 }
 
 - (void)viewWillAppear:(BOOL)animated {
@@ -85,12 +96,24 @@
         [self settitleLabel:selectStore.strStoreName];
         [self requestHomeData];
     }
+    WS(weakself1);
+    [self.scrollView addPullToRefreshWithActionHandler:^{
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.6 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            [weakself1 requestHomeData];
+        });
+    }];
+}
+
+- (void)pushXSLSVCBTItem
+{
+    [self pushXIBName:@"FXSLSViewcontroller" animated:YES selector:nil param:nil];
 }
 
 #pragma mark 获取首页数据
 - (void)requestHomeData
 {
     [self.manager getHomePageInfoApp:[[LoginManager shareLoginManager] getStoreId] finishBlock:^(FirstMode *mode) {
+        [self.scrollView.pullToRefreshView stopAnimating];
         if(mode)
         {
             self.thirdZRLSValue_Label.text = mode.homeInfoMode.strPreviousDayTotal;
@@ -99,22 +122,25 @@
         }
     }];
     [self.manager getSaleSrlStatisticsApp:self.strStartTime endDate:self.strEndTime finishBlock:^(FirstMode *mode) {
+        [self.scrollView.pullToRefreshView stopAnimating];
         if(mode)
         {
-            self.headYYEPrice_Label.text = mode.ssMode.strRealMoney;
-            self.headZLRPrice_Label.text = mode.ssMode.strProFitMoney;
+            
+            self.headYYEPrice_Label.text = [NSString stringWithFormat:@"￥%@",mode.ssMode.strRealMoney];//;
+            self.headZLRPrice_Label.text = [NSString stringWithFormat:@"￥%@",mode.ssMode.strProFitMoney];//;
             self.headZDSValue_Label.text = mode.ssMode.strSaleCount;
         }
     }];
     [self.manager getSummaryStoreStock:[[LoginManager shareLoginManager] getStoreId] finishBlock:^(FirstMode *mode) {
+        [self.scrollView.pullToRefreshView stopAnimating];
         if(mode)
         {
             self.middleZKCValue_Label.text = mode.sumMode.strStockQty;
-            self.middleZCBValue_Label.text = mode.sumMode.strStockMoney;
+            self.middleZCBValue_Label.text = [NSString stringWithFormat:@"￥%@",mode.sumMode.strStockMoney];
             
-            self.thirdJRLSValue_Label.text = mode.sumMode.strJZLS;
-            self.thirdBZLSValue_Label.text = mode.sumMode.strBZLS;
-            self.thirdBYLSValue_Label.text = mode.sumMode.strBYLS;
+            self.thirdJRLSValue_Label.text = [NSString stringWithFormat:@"￥%@",mode.sumMode.strJZLS];
+            self.thirdBZLSValue_Label.text = [NSString stringWithFormat:@"￥%@",mode.sumMode.strBZLS];
+            self.thirdBYLSValue_Label.text = [NSString stringWithFormat:@"￥%@",mode.sumMode.strBYLS];
         }
     }];
 }
@@ -166,6 +192,11 @@
 - (NSString *)getEndTime
 {
     return self.strEndTime;
+}
+#pragma mark 在线订购
+- (void)zxdg_ButtonItem
+{
+    [SVProgressHUD showSuccessWithStatus:@"敬请期待..." duration:1 cover:NO offsetY:64];
 }
 #pragma mark 库存预警按钮点击
 - (void)kcyj_ButtonItem

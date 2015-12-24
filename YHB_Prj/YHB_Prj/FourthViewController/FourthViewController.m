@@ -22,6 +22,7 @@
 #import "CLTableViewCell.h"
 #import "LoginMode.h"
 
+
 #define userFace @"userFace"
 
 static const CGFloat storeTVWidth = 100;
@@ -62,6 +63,11 @@ typedef enum : NSUInteger {
 
 @implementation FourthViewController
 
+- (void)dealloc
+{
+    [[NSNotificationCenter defaultCenter] removeObserver:self];
+}
+
 - (void)viewWillAppear:(BOOL)animated
 {
     [super viewWillAppear:animated];
@@ -75,10 +81,8 @@ typedef enum : NSUInteger {
     [[UIApplication sharedApplication] setStatusBarStyle:UIStatusBarStyleLightContent];
 }
 
-- (void)viewDidLoad {
-    [super viewDidLoad];
-    [self settitleLabel:@"我的"];
-    
+- (void)reloadView
+{
     //设置页面的view宽度
     viewWidth = kMainScreenWidth;
     
@@ -95,7 +99,8 @@ typedef enum : NSUInteger {
     
     CGFloat originX = 15;
     CGFloat interval = 10;
-    NSString *comStr = [NSString stringWithFormat:@"公司名称:%@", mode.strCompanyName];
+    NSString *comName =mode.strCompanyName?mode.strCompanyName:@"";
+    NSString *comStr = [NSString stringWithFormat:@"公司名称:%@", comName];
     kCreateLabel(_userComLabel, CGRectMake(originX, topImgViewH-30, viewWidth-2*originX, 17), 14, [UIColor whiteColor], comStr);
     [_topImgView addSubview:_userComLabel];
     
@@ -122,13 +127,13 @@ typedef enum : NSUInteger {
     CGFloat imgWidth = 59;
     _userImgBtn = [[UIButton alloc] initWithFrame:CGRectMake(originX, _userNameLabel.top-50-imgWidth, imgWidth, imgWidth)];
     [_userImgBtn setImage:[UIImage imageNamed:@"mine_icon_1"] forState:UIControlStateNormal];
-    if ([[SDImageCache sharedImageCache] imageFromDiskCacheForKey:userFace])
-    {
+//    if ([[SDImageCache sharedImageCache] imageFromDiskCacheForKey:userFace])
+//    {
         UIImage *image = [[SDImageCache sharedImageCache] imageFromDiskCacheForKey:userFace];
         [_userImgBtn setImage:image forState:UIControlStateNormal];
-    }
-    else
-    {
+//    }
+//    else
+//    {
         SDWebImageManager *manager = [SDWebImageManager sharedManager];
         NSString *imgUrl = [NSString stringWithFormat:@"%@%@", mode.strFaceDomain,mode.strFaceUrl];
         [manager downloadImageWithURL:[NSURL URLWithString:imgUrl]
@@ -137,17 +142,26 @@ typedef enum : NSUInteger {
                              } completed:^(UIImage *image, NSError *error, SDImageCacheType cacheType, BOOL finished, NSURL *imageURL) {
                                  if (image) {
                                      [[SDImageCache sharedImageCache] storeImage:image
-                                                                          forKey:userStr
+                                                                          forKey:userFace
                                                                           toDisk:YES];
                                      [_userImgBtn setImage:image forState:UIControlStateNormal];
                                  }
                              }];
-    }
+//    }
     _userImgBtn.layer.cornerRadius = imgWidth/2.0;
     _userImgBtn.layer.masksToBounds = YES;
     [_userImgBtn addTarget:self action:@selector(plusImageClicked) forControlEvents:UIControlEventTouchUpInside];
     _topImgView.userInteractionEnabled = YES;
     [_topImgView addSubview:_userImgBtn];
+}
+
+- (void)viewDidLoad {
+    [super viewDidLoad];
+    [self settitleLabel:@"我的"];
+    
+    [NotifyFactoryObject registerLoginSuccMsgNotify:self action:@selector(reloadView)];
+    
+    [self reloadView];
     
     _mineTableView = [[UITableView alloc] initWithFrame:CGRectMake(0, 0, viewWidth, kMainScreenHeight-64-49)];
     _mineTableView.delegate = self;
@@ -457,7 +471,7 @@ typedef enum : NSUInteger {
     [[SDImageCache sharedImageCache] storeImage:image
                                          forKey:userFace
                                          toDisk:YES];
-    [NetManager uploadImg:image parameters:nil apiName:@"uploadUserFacePic" uploadUrl:nil uploadimgName:nil progressBlock:^(NSUInteger bytesWritten, long long totalBytesWritten, long long totalBytesExpectedToWrite) {
+    [NetManager uploadImg:image parameters:@{@"id":[[LoginManager shareLoginManager] getUserId]} apiName:@"uploadUserFacePic" uploadUrl:nil uploadimgName:nil progressBlock:^(NSUInteger bytesWritten, long long totalBytesWritten, long long totalBytesExpectedToWrite) {
         MLOG(@"%f", (float)totalBytesExpectedToWrite/totalBytesWritten);
     } succ:^(NSDictionary *successDict) {
         MLOG(@"1");

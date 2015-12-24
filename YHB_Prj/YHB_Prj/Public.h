@@ -8,10 +8,12 @@
 
 #ifndef Public_h
 #define Public_h
-
+#define kLoadingText @"加载中..."
+#define WS(weakSelf)  __weak __typeof(&*self)weakSelf = self
 #define kMainScreenHeight [UIScreen mainScreen].bounds.size.height
 #define kMainScreenWidth  [UIScreen mainScreen].bounds.size.width
-#define kBaseUrl @"http://testapi.chinascrm.com/sapi4app.html"
+#define kBaseUrl @"http://api.dianjia001.com/sapi4app.html"
+//#define kBaseUrl @"http://testapi.chinascrm.com/sapi4app.html"
 #define kHubRequestUrl(path,outUrl) do{\
   outUrl = [NSString stringWithFormat:@"%@%@",kHubBaseUrl,path];\
 }while(0)
@@ -28,8 +30,12 @@
 
 #else
 #define MLOG(...)
-#define NSLog(...) {}
 #endif
+
+#if !defined(DEBUG) && !defined (SD_VERBOSE)
+#define NSLog(...)
+#endif
+
 
 #define kCreateMutableArry(mutabarry) \
 {\

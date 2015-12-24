@@ -26,7 +26,6 @@
 @property (strong, nonatomic) IBOutlet UILabel *addressLabel;
 @property (strong, nonatomic) IBOutlet UILabel *oneMothSaleRemark;
 @property (strong, nonatomic) IBOutlet UIButton *chakanlishiBT;
-@property (strong, nonatomic) IBOutlet UIButton *deleteButton;
 @property (strong, nonatomic) IBOutlet UIButton *bodadianhuaBT;
 @property (strong, nonatomic) IBOutlet UIButton *fasongduanxinBT;
 @property (strong, nonatomic) IBOutlet UIButton *jifenduihuanBT;
@@ -48,7 +47,7 @@
 - (void)viewDidLoad {
     [super viewDidLoad];
     // Do any additional setup after loading the view from its nib.
-    
+    [self settitleLabel:@"会员详情"];
     self.headImgView.layer.cornerRadius = self.headImgView.width/2;
     [self.headImgView sd_setImageWithURL:[NSURL URLWithString:self.mode.strPortraitUrl] placeholderImage:[UIImage imageNamed:@"hyList_head_defalut"]];
     self.nameLabel.text = self.mode.strVipName;
@@ -87,9 +86,9 @@
     self.birthdayLabel.text = self.mode.strVipBirethday;
     self.sexLabel.text = self.mode.strVipSex;
     self.addressLabel.text = self.mode.strVipAddr;
-#ifdef DEBUG
-    [self.chakanlishiBT addTarget:self action:@selector(pushHistoryOrderVC) forControlEvents:UIControlEventTouchUpInside];
-#endif
+//#ifdef DEBUG
+//    [self.chakanlishiBT addTarget:self action:@selector(pushHistoryOrderVC) forControlEvents:UIControlEventTouchUpInside];
+//#endif
     if(self.mode.isHasRemark)
     {
         self.oneMothSaleRemark.text = @"有记录";
@@ -105,7 +104,6 @@
 {
     [self pushXIBName:@"HYXFJLListViewController" animated:YES selector:@"setDetailData:" param:self.mode,nil];
 }
-
 #pragma mark 拨打电话功能和发送短信
 - (void)systemTelItem
 {

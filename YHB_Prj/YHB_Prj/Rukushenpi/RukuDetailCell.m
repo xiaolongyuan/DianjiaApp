@@ -22,13 +22,19 @@
 
 - (void)setCellData:(RKSPMode *)aMode
 {
+    [self resetview];
     self.dianmingLabel.text = aMode.strStoreName;
+    self.pinmingLabel.text = aMode.strProductName;
     self.jinjiaLabel.text = aMode.strStockPrice;
-    self.zongjiaLabel.text = aMode.strSalePrice;
+    CGFloat zongjia = [aMode.strStockNum intValue]*[aMode.strStockPrice floatValue];
+    NSString *strzj = nil;
+    kFloatToString(strzj, zongjia);
+    self.zongjiaLabel.text = strzj;
 }
 
 - (void)resetview
 {
+    self.pinmingLabel.text = @"";
     self.dianmingLabel.text = @"";
     self.jinjiaLabel.text = @"";
     self.zongjiaLabel.text = @"";

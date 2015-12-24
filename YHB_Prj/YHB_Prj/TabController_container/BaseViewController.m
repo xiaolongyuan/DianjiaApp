@@ -16,6 +16,7 @@
     UILabel *titleLabel;
     BOOL isShowStorelist;
     BOOL isShowSLBT;
+    BOOL isShowAllStroeList;
 }
 @end
 
@@ -112,6 +113,7 @@
 }
 - (void)back
 {
+    [self.view endEditing:YES];
     [self.navigationController popViewControllerAnimated:YES];
 }
 - (void)viewWillAppear:(BOOL)animated
@@ -126,6 +128,7 @@
 
 - (void)viewWillDisappear:(BOOL)animated {
     [super viewWillDisappear:animated];
+    [self.view endEditing:YES];
     [self hiddenSelectStoreButton];
 }
 
@@ -203,11 +206,17 @@
     }
     isShowSLBT = YES;
     UIImage *img = [UIImage imageNamed:@"selectStorelist_bt"];
-    self.storeListBT = [[UIButton alloc] initWithFrame:CGRectMake(titleLabel.right+5, (44-img.size.height)/2, 44, 44)];
+//    self.storeListBT = [[UIButton alloc] initWithFrame:CGRectMake(titleLabel.right+5, (44-img.size.height)/2, 44, 44)];
+    self.storeListBT = [[UIButton alloc] initWithFrame:CGRectMake(kMainScreenWidth-100., (44-img.size.height)/2, 44, 44)];
     [self.storeListBT setImage:img forState:UIControlStateNormal];
     self.storeListBT.tag = 101010;
     [self.storeListBT addTarget:self action:@selector(showStoreview) forControlEvents:UIControlEventTouchUpInside];
     [self.navigationController.view addSubview:self.storeListBT];
+}
+
+- (void)setShowAllStoreList:(BOOL)aIsShowAll
+{
+    isShowAllStroeList = aIsShowAll;
 }
 
 - (void)showStoreview
@@ -217,7 +226,14 @@
         isShowStorelist = YES;
         self.sview = [[StoreListView alloc] initWithFrame:CGRectMake(0, 0, kMainScreenWidth, 150)];
         [self.view addSubview:self.sview];
-        [self.sview setStoreList:[[LoginManager shareLoginManager] getStoreList]];
+        if(isShowAllStroeList == YES)
+        {
+            [self.sview setStoreList:[[LoginManager shareLoginManager] getStoreAndAllList]];
+        }
+        else
+        {
+            [self.sview setStoreList:[[LoginManager shareLoginManager] getStoreList]];
+        }
         [self obserStoreviewResult];
     }
     else

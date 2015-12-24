@@ -7,6 +7,7 @@
 //
 
 #import <Foundation/Foundation.h>
+@class SPGLProductMode;
 
 @interface WYJHMode : NSObject
 @property (nonatomic, strong) NSString *strAddDate;
@@ -38,6 +39,8 @@
 @property (nonatomic, strong) NSString *strSupId;
 
 @property (nonatomic, strong) NSString *strSupName;
+
+- (instancetype)initWithProductMode:(SPGLProductMode *)aProductMode;
 @end
 
 @interface WYJHModeList : NSObject
@@ -66,6 +69,12 @@
 @property (nonatomic, strong) NSString *strSupName;
 
 @property (nonatomic, strong) NSString *strTotalRealPay;
+
+@property (nonatomic, strong) NSString *strEmpStockId;
+
+@property(nonatomic,strong) NSString *strCounterfoilDomain;
+
+@property(nonatomic,strong) NSString *strCounterfoilUrl;
 
 @property (nonatomic, strong) NSMutableArray *modeListArry;
 @end

@@ -9,6 +9,7 @@
 #import "LoginViewController.h"
 #import "LoginManager.h"
 #import "AppDelegate.h"
+#import "ForgetViewController1.h"
 #define kUserInputTFTag 0
 #define kPassInputTFTag 1
 @interface LoginViewController ()
@@ -18,9 +19,16 @@
 @property (strong, nonatomic) IBOutlet UIButton *loginBT;
 @property (nonatomic, strong) NSString *strUserNick;
 @property (nonatomic, strong) NSString *strPasswork;
+@property (nonatomic, assign) BOOL islogOut;
 @end
 
 @implementation LoginViewController
+
+- (void)viewWillAppear:(BOOL)animated
+{
+    [super viewWillAppear:YES];
+    self.navigationController.navigationBarHidden = YES;
+}
 
 - (void)viewDidLoad {
     [super viewDidLoad];
@@ -34,7 +42,7 @@
     self.passInputTF.leftView = [self textfieldLeftView:@"login_pass_icon"];
     self.passInputTF.tag = kPassInputTFTag;
     self.passInputTF.delegate = self;
-    
+    self.passInputTF.secureTextEntry = YES;
     [self.loginBT addTarget:self action:@selector(loginBTItem:) forControlEvents:UIControlEventTouchUpInside];
     
     [self.forgetPassBT addTarget:self action:@selector(forgetPassBTItem:) forControlEvents:UIControlEventTouchUpInside];
@@ -71,17 +79,36 @@
 - (void)loginBTItem:(UIButton *)aBT
 {
     LoginManager *login = [LoginManager shareLoginManager];
-    [login login_request:@"test" pass:@"1213" retblock:^(BOOL ret) {
-        if(ret == YES)
+    [login login_request:self.strUserNick pass:self.strPasswork retblock:^(NSString* msg) {
+        if([msg isEqualToString:@"success"])
         {
-            [[AppDelegate shareAppdelegate] changeWindowRootviewcontroller];
+            if(self.islogOut == NO)
+            {
+                [[AppDelegate shareAppdelegate] changeWindowRootviewcontroller];
+            }
+            else
+            {
+                [NotifyFactoryObject postNotifyMessage:kLoginSuccessMessae param:nil];
+                [self dismissViewControllerAnimated:YES completion:^{
+                    
+                }];
+            }
         }
+        else [SVProgressHUD showErrorWithStatus:msg cover:YES offsetY:kMainScreenHeight/2.0];
     }];
+}
+
+- (void)logOut
+{
+    LoginManager *login = [LoginManager shareLoginManager];
+    [login logout];
+    self.islogOut = YES;
 }
 #pragma mark 忘记密码按钮点击事件
 - (void)forgetPassBTItem:(UIButton *)aBT
 {
-    
+    ForgetViewController1 *vc= [[ForgetViewController1 alloc] init];
+    [self.navigationController pushViewController:vc animated:YES];
 }
 
 - (void)didReceiveMemoryWarning {

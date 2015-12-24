@@ -50,12 +50,12 @@
     data[@"product_id"] = self.productId?:@"";
 //    data[@"product_name"] = self.productName?:@"";
 //    data[@"product_code"] = self.productCode?:@"";
-    data[@"store_stock_id"] = self.storeStockId?:@"";
+//    data[@"store_stock_id"] = self.storeStockId?:@"";
     data[@"stock_qty"] = @(self.stockQuanity);
     data[@"stay_qty"] = @(self.stayQuanity);
 //    data[@"last_ck_time"] = self.lastCheckTime?:@"";
     data[@"chek_qty"] = @(self.checkQuanity);
-    data[@"check_name"] = self.checkName?:@"";
+    data[@"check_name"] = [(self.checkName?:@"") stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding];
     
     return data;
 }

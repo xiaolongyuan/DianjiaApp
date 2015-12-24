@@ -11,6 +11,8 @@
 #import "VipInfoMode.h"
 #import "HYGLOneMothMode.h"
 #import "HYLSXFCell.h"
+#import "SVProgressHUD.h"
+#import "SVPullToRefresh.h"
 
 @interface HYXFJLListViewController ()
 @property (strong, nonatomic) IBOutlet UITableView *tableview;
@@ -34,21 +36,41 @@
     [super viewDidLoad];
     // Do any additional setup after loading the view from its nib.
     //self.modeListArry = [NSMutableArray arrayWithCapacity:0];
+    [self settitleLabel:@"消费记录"];
     self.tableview.delegate = self;
     self.tableview.dataSource = self;
+}
+
+- (void)viewWillAppear:(BOOL)animated
+{
+    [super viewWillAppear:animated];
+    [SVProgressHUD showWithStatus:kLoadingText cover:NO offsetY:64];
     [self.manager getVipSaleOneMonth:self.mode.strId finishBlock:^(HYGLDataModeList *mode) {
+        [SVProgressHUD dismiss];
         if(mode)
         {
             [self.modeListArry addObjectsFromArray:mode.HYGLDataArry];
             [self.tableview reloadData];
         }
     }];
+    WS(weakself);
+    [self.tableview addPullToRefreshWithActionHandler:^{
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.8 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            [weakself.manager getVipSaleOneMonth:weakself.mode.strId finishBlock:^(HYGLDataModeList *mode) {
+                if(mode)
+                {
+                    [weakself.modeListArry addObjectsFromArray:mode.HYGLDataArry];
+                    [weakself.tableview reloadData];
+                }
+                [weakself.tableview.pullToRefreshView stopAnimating];
+            }];
+        });
+    }];
 }
 
 - (void)setDetailData:(id)aMode
 {
     self.mode = aMode;
-
 }
 
 #pragma mark - UITableViewDataSource
@@ -64,7 +86,7 @@
         HYGLOneMothTimeList *timlist = [self.modeListArry objectAtIndex:section];
         NSString *time = timlist.strOrderTime;
         label.text =  [NSString stringWithFormat:@"   消费时间：%@",time];
-        label.backgroundColor = [UIColor grayColor];
+        label.backgroundColor = RGBCOLOR(229, 229, 229);
     }
     return label;
 }

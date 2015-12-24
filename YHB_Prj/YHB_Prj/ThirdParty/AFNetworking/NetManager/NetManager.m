@@ -105,11 +105,13 @@
 
 - (NSString *)getUserToken
 {
+    if(!strUserToken) strUserToken = @"barcodescan.chinascrm.com";
     return strUserToken;
 }
 
 - (NSString*)getStroeID //StoreID这个是你本地选择门店后变动的值
 {
+    if (!strStroreID) strStroreID = @"-8712";
     return strStroreID;
 }
 
@@ -130,7 +132,7 @@
     MLOG(@"Netmanager--dealloc");
 }
 
-+ (void)requestWith:(NSDictionary *)aDict
++ (void)requestWith:(id)aDict
             apiName:(NSString *)aApiName
              method:(NSString *)aMethod
                succ:(SUCCESSBLOCK)success
@@ -143,15 +145,18 @@
     manager.requestSerializer.timeoutInterval = 30;
 
     param = [[NetManager shareInstance] basePostDict:aDict apiName:aApiName];
-    dict = [NSMutableDictionary dictionaryWithDictionary:aDict];
+    dict = [NSMutableDictionary dictionary];
     [dict setValue:param forKey:@"S3CAPI"];
     
+    MLOG(@"%@", dict);
     [NetManager setRequestHeadValue:manager];
     NSString *method = [aMethod uppercaseString];
-    if([kBaseUrl compare:@"https://api.chinascrm.com/sapi4app.html"] == 0)
-    {
-        manager.securityPolicy.allowInvalidCertificates = YES;
-    }
+//    if([kBaseUrl compare:@"https://api.dianjia001.com/sapi4app.html"] == 0)
+//    {
+//        AFSecurityPolicy *securityPolicy = [AFSecurityPolicy defaultPolicy];
+//        securityPolicy.allowInvalidCertificates = YES;
+//        [AFHTTPRequestOperationManager manager].securityPolicy = securityPolicy;
+//    }
     if([method compare:@"POST"] == 0)
     {
         [manager POST:kBaseUrl parameters:dict success:^(AFHTTPRequestOperation *operation, id responseObject) {
@@ -162,7 +167,7 @@
             if ([codeString intValue] == 0) {
                 success(dic);
             }else{
-                success(nil);
+                success(dic);
             }
         } failure:^(AFHTTPRequestOperation *operation, NSError *error) {
             //请求失败
@@ -187,56 +192,7 @@
     }
 }
 
-+ (void)requestWithData:(id)aData
-                apiName:(NSString *)aApiName
-                 method:(NSString *)aMethod
-                   succ:(SUCCESSBLOCK)success
-                failure:(FAILUREBLOCK)failure {
-    AFHTTPRequestOperationManager *manager = [AFHTTPRequestOperationManager manager];
-    manager.requestSerializer.timeoutInterval = 30;
-    
-    [NetManager setRequestHeadValue:manager];
-    NSString *method = [aMethod uppercaseString];
-    if([kBaseUrl compare:@"https://api.chinascrm.com/sapi4app.html"] == 0)
-    {
-        manager.securityPolicy.allowInvalidCertificates = YES;
-    }
-    if([method compare:@"POST"] == 0)
-    {
-        [manager POST:kBaseUrl parameters:aData success:^(AFHTTPRequestOperation *operation, id responseObject) {
-            //请求成功
-            NSDictionary *dic = responseObject;
-            MLOG(@"API_NAME = %@,result=%@",aApiName,dic);
-            NSString *codeString = [NSString stringWithFormat:@"%@",[dic objectForKey:@"code"]];
-            if ([codeString intValue] == 0) {
-                success(dic);
-            }else{
-                success(nil);
-            }
-        } failure:^(AFHTTPRequestOperation *operation, NSError *error) {
-            //请求失败
-            NSDictionary *resultDictionary = [operation.responseString objectFromJSONString];
-            MLOG(@"API_NAME = %@,false=%@",aApiName,resultDictionary);
-            failure(nil, error);
-        }];
-    }
-    else if([method compare:@"GET"] == 0)
-    {
-        [manager GET:kBaseUrl parameters:aData success:^(AFHTTPRequestOperation *operation, id responseObject) {
-            //请求成功
-            NSDictionary *Dict = [operation.responseString objectFromJSONString];
-            MLOG(@"API_NAME = %@,result=%@",aApiName,Dict);
-            success(Dict);
-        } failure:^(AFHTTPRequestOperation *operation, NSError *error) {
-            //请求失败
-            NSDictionary *resultDictionary = [operation.responseString objectFromJSONString];
-            MLOG(@"API_NAME = %@,false=%@",aApiName,resultDictionary);
-            failure(resultDictionary, error);
-        }];
-    }
-}
-
-- (NSString *)basePostDict:(NSDictionary *)aParam apiName:(NSString *)aApiName
+- (NSString *)basePostDict:(id)aParam apiName:(NSString *)aApiName
 {
     NSMutableDictionary *dict = [NSMutableDictionary dictionaryWithDictionary:nil];
     [dict setValue:aApiName forKey:@"ApiName"];
@@ -265,11 +221,12 @@
         NSString *myJsonString = [NetManager Dic_ToJSONString:aParam];
         [dict setValue:myJsonString forKey:@"ApiParam"];
     }
+        
     NSString *paramString = [NetManager Dic_ToJSONString:dict];
     return paramString;
 }
 
-+ (NSString*)Dic_ToJSONString:(NSDictionary *)aDict
++ (NSString*)Dic_ToJSONString:(id)aDict
 {
     NSError* error = nil;
     id result = [NSJSONSerialization dataWithJSONObject:aDict
@@ -329,7 +286,7 @@
     [dict setValue:param forKey:@"S3CAPI"];
     [manager.requestSerializer setValue:param forHTTPHeaderField:@"S3CAPI"];
     [NetManager setRequestHeadValue:manager];
-    if([kBaseUrl compare:@"https://api.chinascrm.com/sapi4app.html"] == 0)
+    if([kBaseUrl compare:@"https://api.dianjia001.com/sapi4app.html"] == 0)
     {
         manager.securityPolicy.allowInvalidCertificates = YES;
     }
@@ -365,7 +322,7 @@
     [dict setValue:param forKey:@"S3CAPI"];
     [manager.requestSerializer setValue:param forHTTPHeaderField:@"S3CAPI"];
     [NetManager setRequestHeadValue:manager];
-    if([kBaseUrl compare:@"https://api.chinascrm.com/sapi4app.html"] == 0)
+    if([kBaseUrl compare:@"https://api.dianjia001.com/sapi4app.html"] == 0)
     {
         manager.securityPolicy.allowInvalidCertificates = YES;
     }

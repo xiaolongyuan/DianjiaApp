@@ -28,7 +28,7 @@
     self.pinmingLabel.text = aMode.strProductName;
     self.dianmingLabel.text = aMode.strStoreName;
     self.dqkcCountLabel.text = aMode.strSurplusNum;
-    self.qhzlCountLabel.text = aMode.strSrplusSum;
+    self.qhzlCountLabel.text = aMode.strTakeNum;
     self.qhsjLabel.text = aMode.strOrderTimer;
 }
 

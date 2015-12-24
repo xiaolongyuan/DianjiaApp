@@ -16,10 +16,26 @@
 #import "XSLSViewController.h"
 #import "YPDMViewController.h"
 #import "SPNewViewController.h"
+#import "DJProductCheckViewManager.h"
+#import "DJCheckCartItemComponent.h"
+#import "AdView.h"
+#import "CLTableViewCell.h"
+#import "NetManager.h"
+#import "LoginMode.h"
 
-@interface SPGLProductDetail ()
+static const CGFloat storeTVWidth = 100;
+
+@interface SPGLProductDetail ()<DJProductCheckViewDataSoure,UITableViewDataSource,UITableViewDelegate>
 {
-    SBPageFlowView *flowView;
+    BOOL _isChecked;
+    AdView * adView;
+    
+    UIView *_maskingView;
+    UITapGestureRecognizer *_tapGR;
+    UITableView *_storeTV;
+    NSArray *_storeArr;
+    
+    NSDictionary *_storeDict;
 }
 @property (strong, nonatomic) IBOutlet UIScrollView *scrollerview;
 @property (strong, nonatomic) IBOutlet UIView *headImgScrollview;
@@ -38,6 +54,8 @@
 @property (strong, nonatomic) IBOutlet UILabel *dianmingAndKuncunLabel;
 @property (strong, nonatomic) SPGLProductMode *productMode;
 @property (strong, nonatomic) SPGLManager *manager;
+@property (strong, nonatomic) NSMutableDictionary *deqCellDict;
+@property (strong, nonatomic) void(^changeBlock)(void);
 @end
 
 @implementation SPGLProductDetail
@@ -57,15 +75,11 @@
     [super viewDidLoad];
     // Do any additional setup after loading the view from its nib.
     [self settitleLabel:@"商品详情"];
+    self.deqCellDict = [NSMutableDictionary dictionaryWithCapacity:0];
     [self.scrollerview setContentSize:CGSizeMake(kMainScreenWidth, self.dianmingAndKuncunLabel.bottom+20)];
-    flowView = [[SBPageFlowView alloc] initWithFrame:CGRectMake(0, 0, self.headImgScrollview.width, self.headImgScrollview.height)];
-    [self.headImgScrollview addSubview:flowView];
-    self.chanpinmaLabel.text = self.productMode.strProductCode;
-    self.pinmingLabel.text = self.productMode.strProductName;
-    self.jinjiaLabel.text = self.productMode.strBuyingPrice;
-    self.kucunLabel.text = self.productMode.strStayQty;
-    self.shoujiaLabel.text = self.productMode.strSalePrice;
-    self.dianmingAndKuncunLabel.text = [NSString stringWithFormat:@"    %@：库存 %@",self.productMode.strClsName,self.productMode.strStockQty];
+    [self createADView];
+
+    [self reloadView];
     
     [self.xiugaishangpinBT addTarget:self action:@selector(touchXiugai) forControlEvents:UIControlEventTouchUpInside];
     [self.shangchuantupianBT addTarget:self action:@selector(touchShangchuan) forControlEvents:UIControlEventTouchUpInside];
@@ -73,26 +87,87 @@
     [self.jhlsBT addTarget:self action:@selector(touchJHLS) forControlEvents:UIControlEventTouchUpInside];
     [self.pdspBT addTarget:self action:@selector(touchPDSP) forControlEvents:UIControlEventTouchUpInside];
     [self.xslsBT addTarget:self action:@selector(touchXSLS) forControlEvents:UIControlEventTouchUpInside];
+    
+    [self createMaskingView];
+    [self touchMask];
+}
+
+- (void)reloadView
+{
+    self.zhekouLabel.text = [self.productMode.strActEnable isEqualToString:@"1"]?@"是":@"否";
+    self.chanpinmaLabel.text = self.productMode.strProductCode;
+    self.pinmingLabel.text = self.productMode.strProductName;
+    self.jinjiaLabel.text = [NSString stringWithFormat:@"￥%.2f", [self.productMode.strBuyingPrice floatValue]];
+    self.kucunLabel.text = [NSString stringWithFormat:@"%.2f", [self.productMode.strStockQty floatValue]];
+    self.shoujiaLabel.text = [NSString stringWithFormat:@"￥%.2f", [self.productMode.strSalePrice floatValue]];
+    self.dianmingAndKuncunLabel.text = [NSString stringWithFormat:@"    %@：库存 %@",self.productMode.strClsName,self.productMode.strStockQty];
 }
 
 - (void)touchXiugai
 {
-    SPEditViewController *vc = [[SPEditViewController alloc] initWithMode:_productMode];
+    SPEditViewController *vc = [[SPEditViewController alloc] initWithMode:_productMode changeBlock:^{
+        [self reloadView];
+        _changeBlock();
+    } needDelete:NO];
     [self.navigationController pushViewController:vc animated:YES];
 }
 
 - (void)touchShangchuan
 {
-    int count = 3-(int)_productMode.picList.count;
-    if (count==0)
+//    int count = 3-(int)_productMode.picList.count;
+//    if (count==0)
+//    {
+//        [SVProgressHUD showErrorWithStatus:@"商品图片已满3张" cover:YES offsetY:kMainScreenHeight/2.0];
+//    }
+//    else
+//    {
+    NSMutableArray *arr = [NSMutableArray arrayWithCapacity:0];
+    for (int i=0; i<self.productMode.picList.count; i++)
     {
-        [SVProgressHUD showErrorWithStatus:@"商品图片已满3张" cover:YES offsetY:kMainScreenHeight/2.0];
+        NSArray *subArr = adView.adScrollView.subviews;
+        UIImageView * imgView = (UIImageView *)[subArr objectAtIndex:i];
+        if (imgView.image) {
+            [arr addObject:imgView.image];
+        }
+        else [SVProgressHUD showErrorWithStatus:@"请等待图片显示完毕" cover:YES offsetY:kMainScreenHeight/2.0];
     }
-    else
+    if (arr.count==self.productMode.picList.count)
     {
-        UploadImgViewController *vc = [[UploadImgViewController alloc] initWithUploadImgCount:count];
+        UploadImgViewController *vc = [[UploadImgViewController alloc] initWithUploadImgCount:3 andId:_productMode.strId andChangeBlock:^(NSArray *aPhotoArr) {
+            self.productMode.picList = [aPhotoArr mutableCopy];
+            [self createADView];
+            _changeBlock();
+        } andPicDict:_productMode.picList imgArr:arr];
         [self.navigationController pushViewController:vc animated:YES];
     }
+    
+//    }
+}
+
+- (void)createADView
+{
+    if(adView)
+    {
+        [adView removeFromSuperview];
+        adView = nil;
+    }
+    NSMutableArray *imgurlArry = [NSMutableArray arrayWithCapacity:0];
+    for(int i=0;i<self.productMode.picList.count;i++)
+    {
+        SPGLProductPicMode *mode = [self.productMode.picList objectAtIndex:i];
+        [imgurlArry addObject:mode.strPic];
+    }
+    adView = [AdView adScrollViewWithFrame:CGRectMake(0, 0, self.headImgScrollview.width, self.headImgScrollview.height)
+                              imageLinkURL:imgurlArry
+                       placeHoderImageName:@"placeHoder.jpg"
+                      pageControlShowStyle:UIPageControlShowStyleLeft];
+    adView.isNeedCycleRoll = NO;
+    adView.contentMode = UIViewContentModeScaleAspectFit;
+    adView.callBack = ^(NSInteger index,NSString * imageURL)
+    {
+        //NSLog(@"被点中图片的索引:%ld---地址:%@",index,imageURL);
+    };
+    [self.headImgScrollview addSubview:adView];
 }
 
 - (void)touchYPDM
@@ -105,7 +180,41 @@
 
 - (void)touchPDSP
 {
-#warning 跳转到盘点商品
+    [self.view addSubview:_maskingView];
+    [self.view addSubview:_storeTV];
+    [_storeTV reloadData];
+//    _isChecked = NO;
+//    [[DJProductCheckViewManager sharedInstance] showCheckViewFromViewController:self withDataSource:self];
+}
+
+#pragma mark - check Delegate
+- (id<DJCheckCartItemComponent>)nextItem {
+    if (!_isChecked) {
+        return [self itemWithProductListModel:self.productMode];
+    }else {
+        return nil;
+    }
+}
+
+#pragma mark - adapter
+
+- (id<DJCheckCartItemComponent>)itemWithProductListModel: (SPGLProductMode *)mode {
+    id<DJCheckCartItemComponent> item = [[DJCheckCartItemComponent alloc] initWithData:_storeDict];
+    
+//    [item setSid:[[LoginManager shareLoginManager] getStoreId]];
+//    [item setCheckId:[mode strCid]];
+//    [item setProductId:[mode strId]];
+//    [item setProductCode:[mode strProductCode]];
+//    [item setProductName:[mode strProductName]];
+//    //    item setStoreStockId:[mode strst]
+//    [item setStockQuanity:[[mode strStockQty] integerValue]];
+//    [item setStayQuanity:[[mode strStayQty] integerValue]];
+//    //    item setCheckQuanity:
+//    [item setLastCheckTime:[mode strCheckLasttime]];
+//    [item setCheckState:DJCheckItemStateNotCheck];
+//    [item setCheckName:[[[LoginManager shareLoginManager] getLoginMode] strUname]];
+    
+    return item;
 }
 
 - (void)touchJHLS
@@ -121,37 +230,105 @@
 }
 
 #pragma mark 设置初始化数据
-- (void)setInitData:(SPGLManager *)aManager mode:(SPGLProductMode *)aMode
+- (void)setInitData:(SPGLManager *)aManager mode:(SPGLProductMode *)aMode changeBlock:(void(^)(void))aChangeBlock
 {
     self.manager = aManager;
     self.productMode = aMode;
-}
-#pragma mark SBPage datasource
-- (void)didReloadData:(UIView *)cell cellForPageAtIndex:(NSInteger)index
-{
+    _changeBlock = aChangeBlock;
 }
 
-- (NSInteger)numberOfPagesInFlowView:(SBPageFlowView *)flowView
+- (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section
 {
-    return self.productMode.picList.count;
-}
-- (CGSize)sizeForPageInFlowView:(SBPageFlowView *)flowView
-{
-    return CGSizeMake(self.headImgScrollview.width/3, self.headImgScrollview.height);
+
+        return _storeArr.count;
 }
 
-// Reusable cells
-- (UIView *)flowView:(SBPageFlowView *)flowView cellForPageAtIndex:(NSInteger)index
+- (CGFloat)tableView:(UITableView *)tableView heightForRowAtIndexPath:(NSIndexPath *)indexPath
 {
-    UIImageView *imgview = nil;
-    if(index < self.productMode.picList.count)
-    {
-        SPGLProductPicMode *pMode = [self.productMode.picList objectAtIndex:index];
-        imgview = [[UIImageView alloc] initWithFrame:CGRectMake(0, 0, self.headImgScrollview.width/3, self.headImgScrollview.height)];
-        [imgview sd_setImageWithURL:[NSURL URLWithString:pMode.strPic] placeholderImage:nil];
-    }
-    return imgview;
+        return 30;
 }
+
+- (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath
+{
+        static NSString *clcellId = @"clCell";
+        CLTableViewCell * cell = [tableView dequeueReusableCellWithIdentifier:clcellId];
+        if (!cell)
+        {
+            cell = [[CLTableViewCell alloc] initWithStyle:UITableViewCellStyleDefault reuseIdentifier:clcellId andWidth:storeTVWidth];
+            cell.titleLabel.font = kFont12;
+        }
+        StoreMode *mode = _storeArr[indexPath.row];
+        cell.titleLabel.text = mode.strStoreName;
+        return cell;
+}
+
+- (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath
+{
+//    [tableView deselectRowAtIndexPath:indexPath animated:NO];
+    StoreMode *mode = _storeArr[indexPath.row];
+    [self getProductSid:mode.strId andProductId:self.productMode.strId];
+}
+
+- (void)createMaskingView
+{
+    _maskingView = [[UIView alloc] initWithFrame:self.view.bounds];
+    _maskingView.backgroundColor = [UIColor blackColor];
+    _maskingView.alpha = 0.3;
+    _tapGR = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(touchMask)];
+    [_maskingView addGestureRecognizer:_tapGR];
+    [self.view addSubview:_maskingView];
+    
+    LoginManager *loManager = [LoginManager shareLoginManager];
+    _storeArr = [loManager getStoreList];
+    
+    CGFloat cellHeight = 30;
+    CGFloat storeTVHeight = cellHeight*_storeArr.count>120?120:cellHeight*_storeArr.count;
+    _storeTV = [[UITableView alloc] initWithFrame:CGRectMake(kMainScreenWidth/2.0-storeTVWidth/2.0, _maskingView.height/2.0-storeTVHeight/2.0, storeTVWidth, storeTVHeight)];
+    _storeTV.delegate =self;
+    _storeTV.dataSource = self;
+    _storeTV.separatorStyle = UITableViewCellSeparatorStyleNone;
+    _storeTV.tableFooterView = [UIView new];
+    [self.view addSubview:_storeTV];
+}
+
+- (void)touchMask
+{
+    [_storeTV removeFromSuperview];
+    [_maskingView removeFromSuperview];
+}
+
+- (void)getProductSid:(NSString *)aSid andProductId:(NSString *)aPid
+{
+    _maskingView.userInteractionEnabled = NO;
+    _storeTV.userInteractionEnabled = NO;
+    [SVProgressHUD show:YES offsetY:kMainScreenHeight/2.0];
+    [NetManager requestWith:@{@"sid":aSid,@"productId":aPid} apiName:@"getProductBySidForCheck" method:@"POST" succ:^(NSDictionary *successDict) {
+        MLOG(@"%@", successDict);
+        NSString *msg = successDict[@"msg"];
+        _maskingView.userInteractionEnabled = YES;
+        _storeTV.userInteractionEnabled = YES;
+        [self touchMask];
+        if ([msg isEqualToString:@"success"])
+        {
+            [SVProgressHUD dismiss];
+            _storeDict = successDict[@"result"];
+            _isChecked = NO;
+            [[DJProductCheckViewManager sharedInstance] showCheckViewFromViewController:self withDataSource:self];
+        }
+        else
+        {
+            [SVProgressHUD showErrorWithStatus:msg cover:YES offsetY:kMainScreenHeight];
+        }
+    } failure:^(NSDictionary *failDict, NSError *error) {
+        _maskingView.userInteractionEnabled = YES;
+        _storeTV.userInteractionEnabled = YES;
+        [self touchMask];
+        [SVProgressHUD showErrorWithStatus:@"获取数据失败" cover:YES offsetY:kMainScreenHeight];
+    }];
+}
+
+
+
 
 - (void)didReceiveMemoryWarning {
     [super didReceiveMemoryWarning];

@@ -18,18 +18,29 @@
 - (void)setCellData:(SPGLProductMode *)aMode
 {
     NSString *picurl = nil;
+    UIImage *image = [[UIImage alloc] init];
     if(aMode.picList && aMode.picList.count>0)
     {
         SPGLProductPicMode *pic = [aMode.picList objectAtIndex:0];
         picurl = pic.strPic;
+        image = pic.image;
     }
-    [self.headUrl sd_setImageWithURL:[NSURL URLWithString:picurl] placeholderImage:nil];
+    if (image)
+        self.headUrl.image = image;
+    else
+        [self.headUrl sd_setImageWithURL:[NSURL URLWithString:picurl] placeholderImage:nil];
     
     self.pinming.text = aMode.strProductName;
-    self.jinjiaLabel.text = aMode.strBuyingPrice;
-    self.kucunlabel.text = aMode.strStayQty;
-    self.shoujiaLabel.text = aMode.strSalePrice;
-    self.zhekouLabel.text = aMode.strSaleUnit;
+    
+    self.jinjiaLabel.textColor = KColor;
+    self.kucunlabel.textColor = KColor;
+    self.shoujiaLabel.textColor = KColor;
+    self.zhekouLabel.textColor = KColor;
+    
+    self.jinjiaLabel.text = [NSString stringWithFormat:@"￥%.2f", [aMode.strBuyingPrice floatValue]];
+    self.kucunlabel.text = [NSString stringWithFormat:@"%.2f", [aMode.strStockQty floatValue]];
+    self.shoujiaLabel.text = [NSString stringWithFormat:@"￥%.2f%@", [aMode.strSalePrice floatValue], aMode.strSaleUnit];
+    self.zhekouLabel.text = [NSString stringWithFormat:@"%.1f", [aMode.strStayQty floatValue]];
 }
 - (void)resetView
 {

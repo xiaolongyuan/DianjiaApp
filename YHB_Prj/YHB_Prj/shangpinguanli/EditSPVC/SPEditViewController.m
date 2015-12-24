@@ -12,6 +12,8 @@
 #import "SupplierMode.h"
 #import "SPGLCategoryMode.h"
 #import "SPManager.h"
+#import "DJScanViewController.h"
+#import "SPNewViewController.h"
 
 typedef NS_ENUM(NSInteger, FieldType) {
     FieldTypetm,
@@ -26,10 +28,11 @@ typedef NS_ENUM(NSInteger, FieldType) {
     FieldTypejf
 };
 
-@interface SPEditViewController ()<UIScrollViewDelegate, UIActionSheetDelegate>
+@interface SPEditViewController ()<UIScrollViewDelegate, UIActionSheetDelegate,DJScanDelegate>
 {
     NSString *_cid;
     NSString *_supid;
+    BOOL _deleteBool;
 }
 
 @property(nonatomic,strong) SPGLProductMode *myMode;
@@ -59,17 +62,21 @@ typedef NS_ENUM(NSInteger, FieldType) {
 @property(nonatomic,strong) SPManager *manager;
 
 @property(nonatomic,strong) UITapGestureRecognizer *tapGR;
+
+@property(nonatomic,strong) void(^changeBlock)(void);
 @end
 
 @implementation SPEditViewController
 
-- (instancetype)initWithMode:(SPGLProductMode *)aMode
+- (instancetype)initWithMode:(SPGLProductMode *)aMode changeBlock:(void (^)(void))aChangeBlock needDelete:(BOOL)aBool
 {
     if (self=[super init])
     {
         _myMode = aMode;
         if (aMode.strCid) _cid = aMode.strCid;
         if (aMode.strSupid) _supid = aMode.strSupid;
+        _changeBlock = aChangeBlock;
+        _deleteBool = aBool;
     }
     return self;
 }
@@ -80,6 +87,32 @@ typedef NS_ENUM(NSInteger, FieldType) {
     self.view.backgroundColor = [UIColor whiteColor];
     
     [self createScrollView];
+    
+    if (_deleteBool==YES)
+    {
+        NSMutableArray *arr = [self.navigationController.viewControllers mutableCopy];
+        int index = -1;
+        for (int i=0; i<arr.count; i++)
+        {
+            UIViewController *vc = arr[i];
+            if ([vc isKindOfClass:[DJScanViewController class]])
+            {
+                index=i;
+            }
+        }
+        if (index!=-1) [arr removeObjectAtIndex:index];
+        index=-1;
+        for (int i=0; i<arr.count; i++)
+        {
+            UIViewController *vc = arr[i];
+            if ([vc isKindOfClass:[SPNewViewController class]])
+            {
+                index=i;
+            }
+        }
+        if (index!=-1) [arr removeObjectAtIndex:index];
+        self.navigationController.viewControllers = arr;
+    }
     
     _tapGR = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(touchView)];
     [_bgScrollView addGestureRecognizer:_tapGR];
@@ -108,6 +141,10 @@ typedef NS_ENUM(NSInteger, FieldType) {
     NSString *isAct = [_myMode.strActEnable intValue]==1?@"参加":@"不参加";
     NSString *isScore = [_myMode.strIsScore intValue]==1?@"是":@"否";
     NSString *supName = _myMode.strSupName?_myMode.strSupName:@"";
+    if (!_myMode.strSaleUnit)
+    {
+        _myMode.strSaleUnit = @"";
+    }
     _contentArray = @[_myMode.strProductCode,_myMode.strProductName,_myMode.strClsName,_myMode.strStockQty,_myMode.strBuyingPrice,_myMode.strSalePrice,_myMode.strSaleUnit,supName,isAct,isScore];
     
     CGFloat endHeight = 0;
@@ -162,7 +199,7 @@ typedef NS_ENUM(NSInteger, FieldType) {
         //        }
         if (i==FieldTypetm)
         {
-            _btntm = [[UIButton alloc] initWithFrame:CGRectMake(lineView.right+5, imgView.top+3, 19, 14)];
+            _btntm = [[UIButton alloc] initWithFrame:CGRectMake(lineView.right+1, imgView.top+1, 25, 18)];
             [_btntm setImage:[UIImage imageNamed:@"sp_sao"] forState:UIControlStateNormal];
             [_btntm addTarget:self action:@selector(touchtm) forControlEvents:UIControlEventTouchUpInside];
             [_bgScrollView addSubview:_btntm];
@@ -211,7 +248,15 @@ typedef NS_ENUM(NSInteger, FieldType) {
 - (void)touchtm
 {
     [self.view endEditing:YES];
-    MLOG(@"%s", __func__);
+    DJScanViewController *vc=  [[DJScanViewController alloc] init];
+    vc.delegate = self;
+    [self.navigationController pushViewController:vc animated:YES];
+}
+
+- (void)scanController:(UIViewController *)vc didScanedAndTransToMessage:(NSString *)message
+{
+    MLOG(@"%@",message);
+    self.textfieldtm.text = message;
 }
 
 - (void)touchView
@@ -225,9 +270,10 @@ typedef NS_ENUM(NSInteger, FieldType) {
     if (dict)
     {
         [self.manager saveOrUpdateDict:dict finishBlock:^(NSString *resultCode) {
-            if ([resultCode isEqualToString:@"1"])
+            if (resultCode && [resultCode intValue]>0)
             {
                 [SVProgressHUD showSuccessWithStatus:@"修改成功" cover:YES offsetY:kMainScreenHeight/2.0];
+                _changeBlock();
                 [self.navigationController popViewControllerAnimated:YES];
             }
             else [SVProgressHUD showErrorWithStatus:@"修改失败" cover:YES offsetY:kMainScreenHeight/2.0];
@@ -269,7 +315,7 @@ typedef NS_ENUM(NSInteger, FieldType) {
     if (_cid)
     {
         [dict setObject:_cid forKey:@"cid"];
-        [dict setObject:_myMode.strClsName forKey:@"cls_name"];
+        [dict setObject:[_myMode.strClsName stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding] forKey:@"cls_name"];
     }
     if (_supid)
     {
@@ -277,12 +323,13 @@ typedef NS_ENUM(NSInteger, FieldType) {
         [dict setObject:_myMode.strSupName forKey:@"sup_name"];
     }
     [dict setObject:_myMode.strId forKey:@"id"];
-    [dict setObject:_myMode.strProductName forKey:@"product_name"];
+    [dict setObject:[_myMode.strProductName stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding] forKey:@"product_name"];
     [dict setObject:_myMode.strProductCode forKey:@"product_code"];
-    [dict setObject:_myMode.strBuyingPrice forKey:@"buying_price"];
+    NSString *jj = [self isNotEmpty:self.textfieldjj.text]?self.textfieldjj.text:@"0";
+    [dict setObject:jj forKey:@"buying_price"];
     [dict setObject:_myMode.strSalePrice forKey:@"sale_price"];
     [dict setObject:_myMode.strIsScore forKey:@"is_score"];
-    [dict setObject:_myMode.strSaleUnit forKey:@"sale_unit"];
+    [dict setObject:[_myMode.strSaleUnit stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding] forKey:@"sale_unit"];
     [dict setObject:_myMode.strActEnable forKey:@"act_enabled"];
     return [dict copy];
 }

@@ -42,7 +42,7 @@
     AssignMentID(self.strVipBirethday, [aDataDict objectForKey:@"vip_birthday"]);
     
     AssignMentID(self.strVipCode, [aDataDict objectForKey:@"vip_code"]);
-    BaseLongLongToNSString(self.strVipCode);
+    //BaseLongLongToNSString(self.strVipCode);
     
     AssignMentID(self.strVipDiscount, [aDataDict objectForKey:@"vip_discount"]);
     BaseFloadToNSString(self.strVipDiscount);
@@ -55,7 +55,7 @@
     AssignMentID(self.strVipPhone, [aDataDict objectForKey:@"vip_phone"]);
     
     AssignMentID(self.strVipScore, [aDataDict objectForKey:@"vip_score"]);
-    BaseLongLongToNSString(self.strVipScore);
+    BaseIntToNSString(self.strVipScore);
     
     AssignMentID(self.strVipSex, [aDataDict objectForKey:@"vip_sex"]);
     if([self.strVipSex intValue] == 1)

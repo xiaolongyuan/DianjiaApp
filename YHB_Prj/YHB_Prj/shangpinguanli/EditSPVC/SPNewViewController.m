@@ -13,6 +13,10 @@
 #import "SPManager.h"
 #import "NetManager.h"
 #import "SPKCViewController.h"
+#import "DJScanViewController.h"
+#import "SPEditViewController.h"
+#import "NetManager.h"
+#import "SPGLProductMode.h"
 
 typedef NS_ENUM(NSInteger, FieldType) {
     FieldTypetm,
@@ -27,7 +31,7 @@ typedef NS_ENUM(NSInteger, FieldType) {
     FieldTypejf
 };
 
-@interface SPNewViewController ()<UIScrollViewDelegate, UIActionSheetDelegate,UIAlertViewDelegate, UIImagePickerControllerDelegate, UINavigationControllerDelegate>//UITableViewDataSource,UITableViewDelegate>
+@interface SPNewViewController ()<UIScrollViewDelegate, UIActionSheetDelegate,UIAlertViewDelegate, UIImagePickerControllerDelegate, UINavigationControllerDelegate,DJScanDelegate>//UITableViewDataSource,UITableViewDelegate>
 {
     NSString *_cid;
     NSString *_supid;
@@ -73,6 +77,9 @@ typedef NS_ENUM(NSInteger, FieldType) {
 //@property(nonatomic,strong) UIView *bgkc;
 //@property(nonatomic,strong) UIView *maskingView;
 @property(nonatomic,strong) SPKCViewController *kcvc;
+
+@property(nonatomic,strong) NSMutableArray *picArray;
+@property(nonatomic,strong) NSArray *resultArr;
 @end
 
 @implementation SPNewViewController
@@ -81,6 +88,7 @@ typedef NS_ENUM(NSInteger, FieldType) {
     [super viewDidLoad];
     self.title = @"新增商品";
     self.view.backgroundColor = [UIColor whiteColor];
+    _picArray = [NSMutableArray arrayWithCapacity:0];
     
     _isHide = YES;
     
@@ -182,7 +190,7 @@ typedef NS_ENUM(NSInteger, FieldType) {
         //        }
         if (i==FieldTypetm)
         {
-            _btntm = [[UIButton alloc] initWithFrame:CGRectMake(lineView.right+5, imgView.top+3, 19, 14)];
+            _btntm = [[UIButton alloc] initWithFrame:CGRectMake(lineView.right+1, imgView.top+1, 25, 18)];
             [_btntm setImage:[UIImage imageNamed:@"sp_sao"] forState:UIControlStateNormal];
             [_btntm addTarget:self action:@selector(touchtm) forControlEvents:UIControlEventTouchUpInside];
             [_bgScrollView addSubview:_btntm];
@@ -243,7 +251,32 @@ typedef NS_ENUM(NSInteger, FieldType) {
 - (void)touchtm
 {
     [self.view endEditing:YES];
-    MLOG(@"%s", __func__);
+    DJScanViewController *vc=  [[DJScanViewController alloc] init];
+    vc.delegate = self;
+    [self.navigationController pushViewController:vc animated:YES];
+}
+
+- (void)scanController:(UIViewController *)vc didScanedAndTransToMessage:(NSString *)message
+{
+    MLOG(@"%@",message);
+    self.textfieldtm.text = message;
+    
+    [NetManager requestWith:@{@"queryName":message} apiName:@"getProductByBarcode" method:@"POST" succ:^(NSDictionary *successDict) {
+        MLOG(@"%@", successDict);
+        NSString *msg = successDict[@"msg"];
+        if ([msg isEqualToString:@"success"])
+        {
+            [SVProgressHUD showWithStatus:@"已存在此商品" cover:YES offsetY:kMainScreenHeight/2.0];
+            NSArray *resultArr = successDict[@"result"];
+            NSDictionary *spDict = resultArr[0];
+            SPGLProductMode *spMode = [[SPGLProductMode alloc] init];
+            [spMode unPacketData:spDict];
+            SPEditViewController *vc = [[SPEditViewController alloc] initWithMode:spMode changeBlock:nil needDelete:YES];
+            [self.navigationController pushViewController:vc animated:YES];
+        }
+    } failure:^(NSDictionary *failDict, NSError *error) {
+        
+    }];
 }
 
 - (void)touchkc
@@ -261,14 +294,79 @@ typedef NS_ENUM(NSInteger, FieldType) {
     NSDictionary *dict = [self getDict];
     if (dict)
     {
+        self.btnOK.enabled = NO;
+        [SVProgressHUD showWithStatus:@"上传商品中" cover:YES offsetY:kMainScreenHeight/2.0];
         [self.manager saveOrUpdateDict:dict finishBlock:^(NSString *resultCode) {
             if (resultCode)
             {
-                [SVProgressHUD showSuccessWithStatus:@"发布成功" cover:YES offsetY:kMainScreenHeight/2.0];
-#warning 上传图片 
-                //_photoArr
+                if (_photoArr.count>0)
+                {
+                    [SVProgressHUD showWithStatus:@"上传图片中" cover:YES offsetY:kMainScreenHeight/2.0];
+                    int count = (int)_photoArr.count;
+                    __block int chuanOK=0;
+                    for (int i=0; i<count; i++)
+                    {
+                        [NetManager uploadImgArry:@[_photoArr[i]] parameters:@{@"id":resultCode} apiName:@"uploadProductPic" uploadUrl:nil uploadimgName:nil progressBlock:nil succ:^(NSDictionary *successDict) {
+                            NSString *msg = successDict[@"msg"];
+                            MLOG(@"%@", successDict);
+                            if ([msg isEqualToString:@"success"])
+                            {
+                                chuanOK++;
+                                NSDictionary *temDict = successDict[@"result"];
+                                
+                                NSString *domain = temDict[@"picDomain"];
+                                NSString *picName = temDict[@"picName"];
+                                NSString *url = [temDict[@"picUrl"] stringByAppendingString:picName];
+                                NSMutableDictionary *dict = [NSMutableDictionary dictionaryWithCapacity:0];
+                                [dict setObject:url forKey:@"pic_url"];
+                                [dict setObject:domain forKey:@"pic_domain"];
+                                [dict setObject:resultCode forKey:@"pid"];
+                                [_picArray addObject:dict];
+                                
+                                if (chuanOK==count)
+                                {
+                                    [NetManager requestWith:@{@"id":resultCode,@"picList":_picArray} apiName:@"updateProductPicApp" method:@"POST" succ:^(NSDictionary *successDict) {
+                                        NSString *msg = successDict[@"msg"];
+                                        if ([msg isEqualToString:@"success"])
+                                        {
+                                            [SVProgressHUD showSuccessWithStatus:@"商品发布成功" cover:YES offsetY:kMainScreenHeight/2.0];
+                                            [self.navigationController popViewControllerAnimated:YES];
+                                        }
+                                        else
+                                        {
+                                            self.btnOK.enabled = YES;
+                                            [SVProgressHUD showErrorWithStatus:@"上传失败" cover:YES offsetY:kMainScreenHeight/2.0];
+                                        }
+                                    } failure:^(NSDictionary *failDict, NSError *error) {
+                                        self.btnOK.enabled = YES;
+                                        [SVProgressHUD showErrorWithStatus:@"上传失败" cover:YES offsetY:kMainScreenHeight/2.0];
+                                    }];
+                                }
+                                
+                            }
+                            else
+                            {
+                                self.btnOK.enabled = YES;
+                                [SVProgressHUD showErrorWithStatus:@"上传失败" cover:YES offsetY:kMainScreenHeight/2.0];
+                            }
+                        } failure:^(NSDictionary *failDict, NSError *error) {
+                            self.btnOK.enabled = YES;
+                            [SVProgressHUD dismiss];
+                        }];
+                    }
+
+                }
+                else
+                {
+                    [SVProgressHUD showSuccessWithStatus:@"商品发布成功" cover:YES offsetY:kMainScreenHeight/2.0];
+                    [self.navigationController popViewControllerAnimated:YES];
+                }
             }
-            else [SVProgressHUD showErrorWithStatus:@"发布失败" cover:YES offsetY:kMainScreenHeight/2.0];
+            else
+            {
+                self.btnOK.enabled = YES;
+                [SVProgressHUD showErrorWithStatus:@"发布失败" cover:YES offsetY:kMainScreenHeight/2.0];
+            }
         }];
     }
 }
@@ -292,18 +390,24 @@ typedef NS_ENUM(NSInteger, FieldType) {
     if (_cid)
     {
         [dict setObject:_cid forKey:@"cid"];
-        [dict setObject:self.btnfl.titleLabel.text forKey:@"cls_name"];
+        [dict setObject:[self.btnfl.titleLabel.text stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding] forKey:@"cls_name"];
     }
     if (_supid)
     {
         [dict setObject:_supid forKey:@"sup_id"];
         [dict setObject:self.btngy.titleLabel.text forKey:@"sup_name"];
     }
-    [dict setObject:self.textfieldpm.text forKey:@"product_name"];
+    NSString *kc = _btnkc.titleLabel.text?_btnkc.titleLabel.text:@"0";
+    [dict setObject:kc forKey:@"stock"];
+    if (![kc isEqualToString:@"0"]) {
+        [dict setObject:_resultArr forKey:@"pStockList"];
+    }
+    [dict setObject:[self.textfieldpm.text stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding] forKey:@"product_name"];
     [dict setObject:self.textfieldtm.text forKey:@"product_code"];
-    [dict setObject:self.textfieldjj.text forKey:@"buying_price"];
+    NSString *jj = [self isNotEmpty:self.textfieldjj.text]?self.textfieldjj.text:@"0";
+    [dict setObject:jj forKey:@"buying_price"];
     [dict setObject:self.textfieldsj.text forKey:@"sale_price"];
-    [dict setObject:self.textfielddw.text forKey:@"sale_unit"];
+    [dict setObject:[self.textfielddw.text stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding] forKey:@"sale_unit"];
     NSString *act;
     NSString *score;
     if ([self.btnzk.titleLabel.text isEqualToString:@"参加"]) act = @"1";
@@ -318,7 +422,7 @@ typedef NS_ENUM(NSInteger, FieldType) {
 
 - (BOOL)isAllOK
 {
-    if (![self isAllNum1:self.textfieldtm.text] || ![self isNotEmpty:self.textfieldpm.text])
+    if (![self isAllNum1:self.textfieldtm.text] || ![self isNotEmpty:self.textfieldtm.text])
     {
         [SVProgressHUD showErrorWithStatus:@"请输入正确条码" cover:YES offsetY:kMainScreenHeight/2.0];
         return NO;
@@ -333,11 +437,11 @@ typedef NS_ENUM(NSInteger, FieldType) {
         [SVProgressHUD showErrorWithStatus:@"请选择商品分类" cover:YES offsetY:kMainScreenHeight/2.0];
         return NO;
     }
-    else if(![self isPureFloat:self.textfieldjj.text])
-    {
-        [SVProgressHUD showErrorWithStatus:@"请输入正确进价" cover:YES offsetY:kMainScreenHeight/2.0];
-        return NO;
-    }
+//    else if(![self isPureFloat:self.textfieldjj.text])
+//    {
+//        [SVProgressHUD showErrorWithStatus:@"请输入正确进价" cover:YES offsetY:kMainScreenHeight/2.0];
+//        return NO;
+//    }
     else if(![self isPureFloat:self.textfieldsj.text])
     {
         [SVProgressHUD showErrorWithStatus:@"请输入正确售价" cover:YES offsetY:kMainScreenHeight/2.0];
@@ -569,8 +673,14 @@ typedef NS_ENUM(NSInteger, FieldType) {
 - (SPKCViewController *)kcvc
 {
     if (!_kcvc) {
-        _kcvc= [[SPKCViewController alloc] initWithBlock:^(int count) {
-            [self.btnkc setTitle:[NSString stringWithFormat:@"%d", count] forState:UIControlStateNormal];
+        _kcvc= [[SPKCViewController alloc] initWithBlock:^(NSArray *aArr) {
+            float allCount = 0;
+            for (NSDictionary *dict in aArr)
+            {
+                allCount += [dict[@"stockQty"] floatValue];
+            }
+            _resultArr = aArr;
+            [self.btnkc setTitle:[NSString stringWithFormat:@"%.2f", allCount] forState:UIControlStateNormal];
             [self.btnkc setTitleColor:[UIColor blackColor] forState:UIControlStateNormal];
         }];
     }
@@ -604,6 +714,7 @@ typedef NS_ENUM(NSInteger, FieldType) {
 
 - (void)addPhoto
 {
+    [self.view endEditing:YES];
     UIActionSheet *sheet;
     
     // 判断是否支持相机

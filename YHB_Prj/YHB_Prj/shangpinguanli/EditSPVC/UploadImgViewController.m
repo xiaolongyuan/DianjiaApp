@@ -8,6 +8,7 @@
 
 #import "UploadImgViewController.h"
 #import "NetManager.h"
+#import "SPGLProductMode.h"
 
 @interface UploadImgViewController ()<UIAlertViewDelegate, UIActionSheetDelegate, UIImagePickerControllerDelegate, UINavigationControllerDelegate>
 {
@@ -19,15 +20,35 @@
 @property(nonatomic,strong) UIView *bgView;
 @property(nonatomic,strong) NSMutableArray *photoArr;
 @property(nonatomic,strong) UIButton *btnOk;
+@property(nonatomic,copy) NSString *myId;
+@property(nonatomic,strong) void(^ myBlock)(NSArray *);
+
+@property(nonatomic,strong) NSMutableArray *picArray;
+
+@property(nonatomic,strong) NSMutableArray *addPicArray;
+
 @end
 
 @implementation UploadImgViewController
 
-- (instancetype)initWithUploadImgCount:(int)aCount
+- (instancetype)initWithUploadImgCount:(int)aCount andId:(NSString *)aId andChangeBlock:(void(^)(NSArray *))aBlock andPicDict:(NSMutableArray *)aPicArr imgArr:(NSMutableArray *)aImgArr;
 {
     if (self=[super init])
     {
-        countNeedToUpload = aCount;
+        countNeedToUpload = 3;
+        _myId = aId;
+        _myBlock = aBlock;
+        _picArray = [NSMutableArray arrayWithCapacity:0];
+//        for (SPGLProductPicMode *mode in aPicArr)
+//        {
+//            NSMutableDictionary *dict = [NSMutableDictionary dictionaryWithCapacity:0];
+//            [dict setObject:mode.strPicUrl forKey:@"pic_url"];
+//            [dict setObject:mode.strPickDomain forKey:@"pic_domain"];
+//            [dict setObject:aId forKey:@"pid"];
+//            [_picArray addObject:dict];
+//        }
+        _photoArr = [NSMutableArray arrayWithCapacity:0];
+        [_photoArr addObjectsFromArray:aImgArr];
     }
     return self;
 }
@@ -40,11 +61,8 @@
     interval = 15;
     imgWidth = (kMainScreenWidth-interval*4)/3.0;
     
-    _photoArr = [NSMutableArray arrayWithCapacity:0];
-    
     _bgView = [[UIView alloc] initWithFrame:CGRectMake(0, interval, kMainScreenWidth, imgWidth)];
     [self.view addSubview:_bgView];
-    [self reloadView];
     
     CGFloat btnWidth = 240;
     _btnOk = [[UIButton alloc] initWithFrame:CGRectMake(kMainScreenWidth/2.0-btnWidth/2.0, kMainScreenHeight-64-60, btnWidth, 30)];
@@ -53,18 +71,101 @@
     _btnOk.titleLabel.font = kFont12;
     [_btnOk addTarget:self action:@selector(touchOk) forControlEvents:UIControlEventTouchUpInside];
     [self.view addSubview:_btnOk];
+    
+    [self reloadView];
 }
 
 //上传按钮事件
 - (void)touchOk
 {
-    [NetManager uploadImgArry:_photoArr parameters:nil apiName:@"updateProductPicApp" uploadUrl:nil uploadimgName:nil progressBlock:^(NSUInteger bytesWritten, long long totalBytesWritten, long long totalBytesExpectedToWrite) {
-        
-    } succ:^(NSDictionary *successDict) {
-        MLOG(@"%@", successDict);
-    } failure:^(NSDictionary *failDict, NSError *error) {
-        
-    }];
+    if (_photoArr.count>0)
+    {
+        self.btnOk.enabled = NO;
+        [SVProgressHUD showWithStatus:@"上传中" cover:YES offsetY:kMainScreenHeight/2.0];
+        int count = (int)_photoArr.count;
+        __block int chuanOK=0;
+        for (int i=0; i<count; i++)
+        {
+            _addPicArray = [NSMutableArray arrayWithCapacity:0];
+            [NetManager uploadImgArry:@[_photoArr[i]] parameters:@{@"id":_myId} apiName:@"uploadProductPic" uploadUrl:nil uploadimgName:nil progressBlock:nil succ:^(NSDictionary *successDict) {
+                NSString *msg = successDict[@"msg"];
+                MLOG(@"%@", successDict);
+                if ([msg isEqualToString:@"success"])
+                {
+                    chuanOK++;
+                    NSDictionary *temDict = successDict[@"result"];
+                    
+                    NSString *domain = temDict[@"picDomain"];
+                    NSString *picName = temDict[@"picName"];
+                    NSString *url = [temDict[@"picUrl"] stringByAppendingString:picName];
+                    
+                    SPGLProductPicMode *mode = [[SPGLProductPicMode alloc] init];
+                    mode.strPickDomain = domain;
+                    mode.strPicUrl = url;
+                    mode.strPic = [domain stringByAppendingString:url];
+                    mode.image = _photoArr[i];
+                    [_addPicArray addObject:mode];
+                    
+                    NSMutableDictionary *dict = [NSMutableDictionary dictionaryWithCapacity:0];
+                    [dict setObject:url forKey:@"pic_url"];
+                    [dict setObject:domain forKey:@"pic_domain"];
+//                    [dict setObject:_myId forKey:@"pid"];
+                    //                [dict setObject:picName forKey:@"picName"];
+                    [_picArray addObject:dict];
+                    
+                    if (chuanOK==count)
+                    {
+                        [NetManager requestWith:@{@"id":_myId,@"picList":_picArray} apiName:@"updateProductPicApp" method:@"POST" succ:^(NSDictionary *successDict) {
+                            NSString *msg = successDict[@"msg"];
+                            if ([msg isEqualToString:@"success"])
+                            {
+                                [SVProgressHUD showSuccessWithStatus:@"上传成功" cover:YES offsetY:kMainScreenHeight/2.0];
+                                _myBlock(_addPicArray);
+                                [self.navigationController popViewControllerAnimated:YES];
+                            }
+                            else
+                            {
+                                self.btnOk.enabled = YES;
+                                [SVProgressHUD showErrorWithStatus:@"上传失败" cover:YES offsetY:kMainScreenHeight/2.0];
+                            }
+                        } failure:^(NSDictionary *failDict, NSError *error) {
+                            
+                        }];
+
+                    }
+                    
+                }
+                else
+                {
+                    self.btnOk.enabled = YES;
+                    [SVProgressHUD showErrorWithStatus:@"上传失败" cover:YES offsetY:kMainScreenHeight/2.0];
+                }
+            } failure:^(NSDictionary *failDict, NSError *error) {
+                self.btnOk.enabled = YES;
+                [SVProgressHUD dismiss];
+            }];
+        }
+    }
+    else{
+        [NetManager requestWith:@{@"id":_myId,@"picList":_picArray} apiName:@"updateProductPicApp" method:@"POST" succ:^(NSDictionary *successDict) {
+            NSString *msg = successDict[@"msg"];
+            if ([msg isEqualToString:@"success"])
+            {
+                _myBlock(_addPicArray);
+                [SVProgressHUD showSuccessWithStatus:@"修改成功" cover:YES offsetY:kMainScreenHeight/2.0];
+                [self.navigationController popViewControllerAnimated:YES];
+            }
+            else
+            {
+                self.btnOk.enabled = YES;
+                [SVProgressHUD showErrorWithStatus:@"操作失败" cover:YES offsetY:kMainScreenHeight/2.0];
+            }
+        }failure:^(NSDictionary *failDict, NSError *error) {
+            self.btnOk.enabled = YES;
+            [SVProgressHUD dismiss];
+        }];
+
+    }
 }
 
 - (void)reloadView

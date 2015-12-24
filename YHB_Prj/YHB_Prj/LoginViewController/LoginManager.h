@@ -7,8 +7,8 @@
 //
 
 #import <Foundation/Foundation.h>
-#define LOGINRESULTBLOCK      void(^)(BOOL ret)
-
+#define LOGINRESULTBLOCK      void(^)(NSString *msg)
+@class LoginMode;
 @class StoreMode;
 @interface LoginManager : NSObject
 
@@ -31,6 +31,12 @@
 - (void)setNetWorkSEID:(NSString *)aSEID;
 
 - (NSArray *)getStoreList;
+
+- (NSArray *)getStoreAndAllList;//返回带有全部店铺的list；
+
+- (NSString *)getCurrentStoreName;
+
+- (void)logout;
 
 @property (nonatomic, strong) StoreMode *currentSelectStore;
 

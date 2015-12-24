@@ -8,6 +8,7 @@
 
 #import "WYJHManager.h"
 #import "NetManager.h"
+#import "SVProgressHUD.h"
 
 @interface WYJHManager()
 {
@@ -25,17 +26,19 @@
 - (void)appGetStorageSrl:(int)selId finishBlock:(void(^)(WYJHModeRows *llist))aFinishBlock
 {
     NSMutableDictionary *dict = [NSMutableDictionary dictionaryWithCapacity:0];
-    [dict setValue:[NSNumber numberWithInt:selId] forKey:@"sid"];
+//    [dict setValue:[NSNumber numberWithInt:selId] forKey:@"sid"];
     if(selId == 1)
     {
         [dict setValue:[NSNumber numberWithInt:stockSrlCurrentPage_1] forKey:@"pageNo"];
     }
     else if(selId == 2)
     {
+        [dict setValue:@0 forKey:@"status"];
         [dict setValue:[NSNumber numberWithInt:stockSrlCurrentPage_2] forKey:@"pageNo"];
     }
     else if(selId == 0)
     {
+        [dict setValue:@1 forKey:@"status"];
         [dict setValue:[NSNumber numberWithInt:stockSrlCurrentPage__1] forKey:@"pageNo"];
     }
     [dict setValue:[NSNumber numberWithInt:20] forKey:@"pageSize"];
@@ -56,8 +59,10 @@
     {
         [dict setValue:strAccountType forKey:@"accountType"];
     }
+    [SVProgressHUD showWithStatus:kLoadingText cover:NO offsetY:64];
     [NetManager requestWith:dict apiName:@"appGetStorageSrl" method:@"POST" succ:^(NSDictionary *successDict) {
         MLOG(@"%@",successDict);
+        [SVProgressHUD dismiss];
         NSDictionary *dict = [successDict objectForKey:@"result"];
         if(dict)
         {
@@ -91,9 +96,16 @@
         }
     } failure:^(NSDictionary *failDict, NSError *error) {
         {
+            [SVProgressHUD dismiss];
             aFinishBlock(nil);
         }
     }];
+}
+- (void)clearePageNo
+{
+    stockSrlCurrentPage_1 = 0;
+    stockSrlCurrentPage_2 = 0;
+    stockSrlCurrentPage__1 = 0;
 }
 #pragma mark 结账进货
 - (void)appAccountSupplierStorage:(NSString *)aId
@@ -102,7 +114,13 @@
     NSMutableDictionary *dict = [NSMutableDictionary dictionaryWithCapacity:0];
     [dict setValue:aId forKey:@"id"];
     [NetManager requestWith:dict apiName:@"appAccountSupplierStorage" method:@"post" succ:^(NSDictionary *successDict) {
-        MLOG(@"%@",successDict);
+//MLOG(@"%@",successDict);
+        NSString *msg = successDict[@"msg"];
+        if ([msg isEqualToString:@"success"])
+        {
+            aFinishBlock(YES);
+        }
+        else aFinishBlock(NO);
     } failure:^(NSDictionary *failDict, NSError *error) {
         
     }];
@@ -115,7 +133,13 @@
     NSMutableDictionary *dict = [NSMutableDictionary dictionaryWithCapacity:0];
     [dict setValue:aId forKey:@"id"];
     [NetManager requestWith:dict apiName:@"appStorageStockSrl" method:@"post" succ:^(NSDictionary *successDict) {
-        MLOG(@"%@",successDict);
+//        MLOG(@"%@",successDict);
+        NSString *msg = successDict[@"msg"];
+        if ([msg isEqualToString:@"success"])
+        {
+            aFinishBlock(YES);
+        }
+        else aFinishBlock(NO);
     } failure:^(NSDictionary *failDict, NSError *error) {
         
     }];

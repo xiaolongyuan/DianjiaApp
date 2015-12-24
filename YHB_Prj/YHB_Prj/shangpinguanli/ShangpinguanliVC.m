@@ -12,23 +12,27 @@
 #import "SPGLSearchVC.h"
 #import "SPGLSearchVC.h"
 #import "SPNewViewController.h"
+#import "WYJHMode.h"
+#import "DJProductSearchBar.h"
 
 @interface ShangpinguanliVC ()
 {
-    int currentSectionIndex;
     int currentIndexPath;
     int oldSectionPath;
     NSMutableArray *currentIndexArry;
      DJScanViewController *svc;
 }
-@property (strong, nonatomic) IBOutlet UIButton *searchBt;
-@property (strong, nonatomic) IBOutlet UIButton *scanButton;
+
+@property (weak, nonatomic) IBOutlet DJProductSearchBar *searchBar;
+
 @property (strong, nonatomic) IBOutlet UITableView *sectionTableview;
 @property (strong, nonatomic) IBOutlet UITableView *indexTableview;
 @property (nonatomic, strong) SPGLManager *manager;
 @property (nonatomic, strong) SPGLCategoryIndexList *modeList;
 
 @property(nonatomic,strong) void(^selectBlock)(SPGLCategoryMode *);
+@property(nonatomic,strong) void(^changeBlock)(WYJHModeList *);
+@property(nonatomic,strong) WYJHModeList *WYJHModeList;
 
 @property(nonatomic,strong) UIButton *addBtn;
 @end
@@ -47,6 +51,18 @@
     return self;
 }
 
+- (void)setIsFromProductCheckCart:(BOOL)isFromProductCheckCart {
+    _isFromProductCheckCart = isFromProductCheckCart;
+    _isJumpFromPanDian = _isFromProductCheckCart;
+}
+
+- (void)setModeList:(WYJHModeList *)aList andChangeBlock:(void(^)(WYJHModeList *))aBlock
+{
+    _changeBlock = aBlock;
+    _WYJHModeList = aList;
+}
+
+
 - (void)setSelectBlock:(void (^)(SPGLCategoryMode *))aBlock
 {
     _selectBlock = aBlock;
@@ -55,6 +71,7 @@
 - (void)viewDidLoad {
     [super viewDidLoad];
     // Do any additional setup after loading the view from its nib.
+    [self settitleLabel:@"商品管理"];
     self.sectionTableview.delegate = self;
     self.sectionTableview.dataSource = self;
     self.sectionTableview.tag = 10;
@@ -69,8 +86,13 @@
     [_addBtn addTarget:self action:@selector(touchAdd) forControlEvents:UIControlEventTouchUpInside];
     [self.view addSubview:_addBtn];
     
-    [self.scanButton addTarget:self action:@selector(pushScanView) forControlEvents:UIControlEventTouchUpInside];
-    [self.searchBt addTarget:self action:@selector(pushSearchVc) forControlEvents:UIControlEventTouchUpInside];
+    __weak typeof(self) weakself = self;
+    [self.searchBar setNeedShowSearchVCHandler:^{
+        [weakself pushSearchVc];
+    } andShowScanVCHandler:^{
+        [weakself pushScanView];
+    }];
+    
 }
 
 - (void)viewDidAppear:(BOOL)animated
@@ -84,6 +106,10 @@
             [self.indexTableview reloadData];
         }
     }];
+    if (self.isNeedJumpToScan) {
+        self.isNeedJumpToScan = NO;
+        [self pushScanView];
+    }
 }
 #pragma mark 进入新增商品
 - (void)touchAdd
@@ -96,7 +122,13 @@
 #pragma mark 进入搜索页面
 - (void)pushSearchVc
 {
-    [self pushXIBName:@"SPGLSearchVC" animated:YES selector:@"setMnager:" param:self.manager,nil];
+//    [self pushXIBName:@"SPGLSearchVC" animated:YES selector:@"setMnager:" param:self.manager,nil];
+    
+    SPGLSearchVC *ssvc = [[SPGLSearchVC alloc] initWithNibName:@"SPGLSearchVC" bundle:nil];
+    ssvc.isJumpFromPanDian = self.isJumpFromPanDian;
+    [ssvc setMnager:self.manager];
+
+    [self.navigationController pushViewController:ssvc animated:YES];
 }
 #pragma mark 进入扫描条形码页面
 - (void)pushScanView
@@ -110,13 +142,15 @@
 {
     MLOG(@"%@",message);
     SPGLSearchVC *ssvc = [[SPGLSearchVC alloc] initWithNibName:@"SPGLSearchVC" bundle:nil];
+    ssvc.isJumpFromPanDian = self.isJumpFromPanDian;
     [ssvc setMnagerAndCode:self.manager procode:message];
-    NSMutableArray * viewControllers = [self.navigationController.viewControllers mutableCopy];
-    if (viewControllers.count > 1) {
-        [viewControllers removeLastObject];
-    }
-    [viewControllers addObject:ssvc];
-    [self.navigationController setViewControllers:viewControllers animated:YES];
+//    NSMutableArray * viewControllers = [self.navigationController.viewControllers mutableCopy];
+//    if (viewControllers.count > 1) {
+//        [viewControllers removeLastObject];
+//    }
+//    [viewControllers addObject:ssvc];
+//    [self.navigationController setViewControllers:viewControllers animated:YES];
+    [self.navigationController pushViewController:ssvc animated:YES];
 }
 
 #pragma mark - UITableViewDataSource
@@ -127,11 +161,11 @@
     int count = 0;
     if(tableView.tag == 10)
     {
-        count = self.modeList.modeSectionArry.count;
+        count = (int)self.modeList.modeSectionArry.count;
     }
     else
     {
-        SPGLCategoryMode *mode = [self.modeList.modeSectionArry objectAtIndex:currentSectionIndex];
+        SPGLCategoryMode *mode = [self.modeList.modeSectionArry objectAtIndex:currentIndexPath];
         [currentIndexArry removeAllObjects];
         for(SPGLCategoryMode *iMode in self.modeList.modeIndexArry)
         {
@@ -229,7 +263,14 @@
             _selectBlock(mode);
             [self.navigationController popViewControllerAnimated:YES];
         }
-        else [self pushXIBName:@"SPGLSearchVC" animated:YES selector:@"setMnagerAndid:cateID:" param:self.manager,mode.strId,nil];
+        else if(_changeBlock)
+        {
+            [self pushXIBName:@"SPGLSearchVC" animated:YES selector:@"setMnagerAndid:cateID:modeList:fromJump:andChangeBlock:" param:self.manager,mode.strId,_WYJHModeList,[NSNumber numberWithBool:self.isJumpFromPanDian],_changeBlock,nil];
+        }
+        else
+        {
+            [self pushXIBName:@"SPGLSearchVC" animated:YES selector:@"setMnagerAndid:cateID:fromJump:" param:self.manager,mode.strId,[NSNumber numberWithBool:self.isJumpFromPanDian],nil];
+        }
     }
 }
 
@@ -244,6 +285,11 @@
     // Dispose of any resources that can be recreated.
 }
 
+- (void)dealloc
+{
+    self.sectionTableview.delegate = nil;
+    self.sectionTableview.dataSource = nil;
+}
 /*
 #pragma mark - Navigation
 

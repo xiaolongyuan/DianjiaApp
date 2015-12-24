@@ -7,6 +7,7 @@
 //
 
 #import "WYJHMode.h"
+#import "SPGLProductMode.h"
 
 @implementation WYJHMode
 - (instancetype)init
@@ -16,9 +17,29 @@
     return self;
 }
 
+- (instancetype)initWithProductMode:(SPGLProductMode *)aProductMode
+{
+    if (self = [super init])
+    {
+//        self.strAddDate = aProductMode.
+        self.strId = aProductMode.strId;
+//        self.strMakeDate = aProductMode.str
+        self.strProductCode = aProductMode.strProductCode;
+//        self.strProductId = aProductMode.strProductName
+        self.strProductName = aProductMode.strProductName;
+        self.strSalePrice = aProductMode.strSalePrice;
+//        self.strShelfDys = aProductMode.strs
+        self.strStayQty = aProductMode.strStayQty;
+        self.strStockNum = aProductMode.strStockQty;
+//        self.strStoreName = aProductMode.strsto
+        self.strSupId = aProductMode.strSupid;
+        self.strSupName = aProductMode.strSupName;
+    }
+    return self;
+}
+
 - (void)unPacketData:(NSDictionary *)aDataDict
 {
-    
     AssignMentID(self.strAddDate, [aDataDict objectForKey:@"add_date"]);
     
     AssignMentID(self.strId, [aDataDict objectForKey:@"id"]);
@@ -47,6 +68,7 @@
     
     AssignMentID(self.strSupId, [aDataDict objectForKey:@"sup_id"]);
     BaseLongLongToNSString(self.strSupId);
+    
     AssignMentID(self.strSupName, [aDataDict objectForKey:@"sup_name"]);
     
 }
@@ -90,8 +112,16 @@
     BaseLongLongToNSString(self.strSupid);
     AssignMentID(self.strSupName, [aDataDict objectForKey:@"sup_name"]);
     
+    AssignMentID(self.strEmpStockId, [aDataDict objectForKey:@"emp_stock_id"]);
+    BaseLongLongToNSString(self.strEmpStockId);
+    
     AssignMentID(self.strTotalRealPay, [aDataDict objectForKey:@"total_real_pay"]);
     BaseFloadToNSString(self.strTotalRealPay);
+    
+    AssignMentID(self.strCounterfoilDomain, [aDataDict objectForKey:@"counterfoil_domain"]);
+    
+    AssignMentID(self.strCounterfoilUrl, [aDataDict objectForKey:@"counterfoil_url"]);
+    
     NSArray *detailList = [aDataDict objectForKey:@"detailList"];
     if(detailList && detailList.count > 0)
     {
